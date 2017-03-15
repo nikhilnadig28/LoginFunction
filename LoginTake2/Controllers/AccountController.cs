@@ -13,31 +13,45 @@ using Microsoft.AspNet.Identity.EntityFramework;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Cookies;
 using Microsoft.Owin.Security.OAuth;
+using Microsoft.AspNet.Identity.Owin;
+using LoginTake2;
 using LoginTake2.Models;
-using LoginTake2.Providers;
 using LoginTake2.Results;
+using LoginTake2.Providers;
 
-namespace LoginTake2.Controllers
+namespace LoginFunction.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     [RoutePrefix("api/Account")]
     public class AccountController : ApiController
     {
         private const string LocalLoginProvider = "Local";
+        private ApplicationUserManager _userManager;
 
         public AccountController()
-            : this(Startup.UserManagerFactory(), Startup.OAuthOptions.AccessTokenFormat)
         {
+
         }
 
-        public AccountController(UserManager<IdentityUser> userManager,
+        public AccountController(ApplicationUserManager userManager,
             ISecureDataFormat<AuthenticationTicket> accessTokenFormat)
         {
             UserManager = userManager;
             AccessTokenFormat = accessTokenFormat;
         }
 
-        public UserManager<IdentityUser> UserManager { get; private set; }
+        public ApplicationUserManager UserManager
+        {
+            get
+            {
+                return _userManager ?? Request.GetOwinContext().GetUserManager<ApplicationUserManager>();
+            }
+            private set
+            {
+                _userManager = value;
+            }
+        }
+
         public ISecureDataFormat<AuthenticationTicket> AccessTokenFormat { get; private set; }
 
         // GET api/Account/UserInfo
@@ -47,11 +61,16 @@ namespace LoginTake2.Controllers
         {
             ExternalLoginData externalLogin = ExternalLoginData.FromIdentity(User.Identity as ClaimsIdentity);
 
+            // We wouldn't normally be likely to do this:
+            var user = UserManager.FindByName(User.Identity.Name);
             return new UserInfoViewModel
             {
                 UserName = User.Identity.GetUserName(),
                 HasRegistered = externalLogin == null,
-                LoginProvider = externalLogin != null ? externalLogin.LoginProvider : null
+                LoginProvider = externalLogin != null ? externalLogin.LoginProvider : null,
+
+                // Pass the custom properties too:
+             
             };
         }
 
@@ -67,7 +86,7 @@ namespace LoginTake2.Controllers
         [Route("ManageInfo")]
         public async Task<ManageInfoViewModel> GetManageInfo(string returnUrl, bool generateState = false)
         {
-            IdentityUser user = await UserManager.FindByIdAsync(User.Identity.GetUserId());
+            ApplicationUser user = await UserManager.FindByIdAsync(User.Identity.GetUserId());
 
             if (user == null)
             {
@@ -76,7 +95,7 @@ namespace LoginTake2.Controllers
 
             List<UserLoginInfoViewModel> logins = new List<UserLoginInfoViewModel>();
 
-            foreach (IdentityUserLogin linkedAccount in user.Logins)
+            foreach (ApplicationUserLogin linkedAccount in user.Logins)
             {
                 logins.Add(new UserLoginInfoViewModel
                 {
@@ -97,7 +116,7 @@ namespace LoginTake2.Controllers
             return new ManageInfoViewModel
             {
                 LocalLoginProvider = LocalLoginProvider,
-                UserName = user.UserName,
+                //Email = user.UserName,
                 Logins = logins,
                 ExternalLoginProviders = GetExternalLogins(returnUrl, generateState)
             };
@@ -114,11 +133,10 @@ namespace LoginTake2.Controllers
 
             IdentityResult result = await UserManager.ChangePasswordAsync(User.Identity.GetUserId(), model.OldPassword,
                 model.NewPassword);
-            IHttpActionResult errorResult = GetErrorResult(result);
 
-            if (errorResult != null)
+            if (!result.Succeeded)
             {
-                return errorResult;
+                return GetErrorResult(result);
             }
 
             return Ok();
@@ -134,11 +152,10 @@ namespace LoginTake2.Controllers
             }
 
             IdentityResult result = await UserManager.AddPasswordAsync(User.Identity.GetUserId(), model.NewPassword);
-            IHttpActionResult errorResult = GetErrorResult(result);
 
-            if (errorResult != null)
+            if (!result.Succeeded)
             {
-                return errorResult;
+                return GetErrorResult(result);
             }
 
             return Ok();
@@ -174,11 +191,9 @@ namespace LoginTake2.Controllers
             IdentityResult result = await UserManager.AddLoginAsync(User.Identity.GetUserId(),
                 new UserLoginInfo(externalData.LoginProvider, externalData.ProviderKey));
 
-            IHttpActionResult errorResult = GetErrorResult(result);
-
-            if (errorResult != null)
+            if (!result.Succeeded)
             {
-                return errorResult;
+                return GetErrorResult(result);
             }
 
             return Ok();
@@ -205,11 +220,9 @@ namespace LoginTake2.Controllers
                     new UserLoginInfo(model.LoginProvider, model.ProviderKey));
             }
 
-            IHttpActionResult errorResult = GetErrorResult(result);
-
-            if (errorResult != null)
+            if (!result.Succeeded)
             {
-                return errorResult;
+                return GetErrorResult(result);
             }
 
             return Ok();
@@ -245,7 +258,7 @@ namespace LoginTake2.Controllers
                 return new ChallengeResult(provider, this);
             }
 
-            IdentityUser user = await UserManager.FindAsync(new UserLoginInfo(externalLogin.LoginProvider,
+            ApplicationUser user = await UserManager.FindAsync(new UserLoginInfo(externalLogin.LoginProvider,
                 externalLogin.ProviderKey));
 
             bool hasRegistered = user != null;
@@ -253,10 +266,12 @@ namespace LoginTake2.Controllers
             if (hasRegistered)
             {
                 Authentication.SignOut(DefaultAuthenticationTypes.ExternalCookie);
-                ClaimsIdentity oAuthIdentity = await UserManager.CreateIdentityAsync(user,
-                    OAuthDefaults.AuthenticationType);
-                ClaimsIdentity cookieIdentity = await UserManager.CreateIdentityAsync(user,
+
+                ClaimsIdentity oAuthIdentity = await user.GenerateUserIdentityAsync(UserManager,
+                   OAuthDefaults.AuthenticationType);
+                ClaimsIdentity cookieIdentity = await user.GenerateUserIdentityAsync(UserManager,
                     CookieAuthenticationDefaults.AuthenticationType);
+
                 AuthenticationProperties properties = ApplicationOAuthProvider.CreateProperties(user.UserName);
                 Authentication.SignIn(properties, oAuthIdentity, cookieIdentity);
             }
@@ -321,17 +336,13 @@ namespace LoginTake2.Controllers
                 return BadRequest(ModelState);
             }
 
-            IdentityUser user = new IdentityUser
-            {
-                UserName = model.UserName
-            };
+            var user = new ApplicationUser() { UserName = model.UserName };
 
             IdentityResult result = await UserManager.CreateAsync(user, model.Password);
-            IHttpActionResult errorResult = GetErrorResult(result);
 
-            if (errorResult != null)
+            if (!result.Succeeded)
             {
-                return errorResult;
+                return GetErrorResult(result);
             }
 
             return Ok();
@@ -348,42 +359,37 @@ namespace LoginTake2.Controllers
                 return BadRequest(ModelState);
             }
 
-            ExternalLoginData externalLogin = ExternalLoginData.FromIdentity(User.Identity as ClaimsIdentity);
-
-            if (externalLogin == null)
+            var info = await Authentication.GetExternalLoginInfoAsync();
+            if (info == null)
             {
                 return InternalServerError();
             }
 
-            IdentityUser user = new IdentityUser
-            {
-                UserName = model.UserName
-            };
-            user.Logins.Add(new IdentityUserLogin
-            {
-                LoginProvider = externalLogin.LoginProvider,
-                ProviderKey = externalLogin.ProviderKey
-            });
-            IdentityResult result = await UserManager.CreateAsync(user);
-            IHttpActionResult errorResult = GetErrorResult(result);
+            var user = new ApplicationUser() { UserName = model.UserName};
 
-            if (errorResult != null)
+            IdentityResult result = await UserManager.CreateAsync(user);
+            if (!result.Succeeded)
             {
-                return errorResult;
+                return GetErrorResult(result);
             }
 
+            result = await UserManager.AddLoginAsync(user.Id, info.Login);
+            if (!result.Succeeded)
+            {
+                return GetErrorResult(result);
+            }
             return Ok();
         }
 
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                UserManager.Dispose();
-            }
+        //protected override void Dispose(bool disposing)
+        //{
+        //    if (disposing)
+        //    {
+        //        UserManager.Dispose();
+        //    }
 
-            base.Dispose(disposing);
-        }
+        //    base.Dispose(disposing);
+        //}
 
         #region Helpers
 
