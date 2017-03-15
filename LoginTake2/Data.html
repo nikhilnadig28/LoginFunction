@@ -1,0 +1,108 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title></title>
+    <link href="Content/bootstrap.css" rel="stylesheet" />
+</head>
+<body style="padding-top:20px">
+    <div class="col-md-10 col-md-offset-1">
+        <div class=" well">
+            <input type="button" id="btnLoadEmployees" class="btn btn-success" value="Load Employees" />
+            <input type="button" id="btnLogoff" class="btn btn-success pull-right" value="Logoff" />
+        </div>
+        <div class="well hidden" id="divData">
+            <table class="table table-bordered" id="tblData">
+                <thead>
+                    <tr class="success">
+                        <td>
+                            ID
+                        </td>
+                        <td>
+                            Name
+                        </td>
+                        <td>
+                            Age
+                        </td>
+                    </tr>
+                </thead>
+                <tbody id="tblBody"></tbody>
+            </table>
+
+
+        </div>
+
+        <div class="modal fade" tabindex="-1" id="errorModal"
+             data-keyboard="false" data-backdrop="static">
+            <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">
+                            &times;
+                        </button>
+                        <h4 class="modal-body">
+                            Session Expired
+                        </h4>
+                    </div>
+                    <div class="modal-body">
+                        <h2 class="modal-title">Please close this meesage to Login Again</h2>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" data-dismiss="modal" class="btn btn-success">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="divError" class="alert alert-danger collapse">
+            <a id="linkClose" class="close" href="#" />&times;
+
+        </div>
+        <div id="divErrorText" class="alert"></div>
+
+
+    </div>
+    <script src="Scripts/jquery-1.10.2.min.js"></script>
+    <script src="Scripts/bootstrap.min.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            if (sessionStorage.getItem('accessToken') == null) {
+                window.location.href = "Login.html";
+            }
+            $('#divLinkClose').click(function () {
+                $('#divError').modal('fade');
+            });
+
+            $('#btnLogoff').click(function () {
+                sessionStorage.removeItem('accessToken');
+                window.location.href = "Login.html";
+
+            })
+            $('#btnLoadEmployees').click(function () {
+                $.ajax({
+                    url: 'api/employees',
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
+                    },
+                    success: function (data) {
+                        $('#divData').removeClass('hidden');
+                        $('#tblData').empty();
+                        $.each(data, function (index, value) {
+                            var row = $('<tr><td>' + value.ID + '</td><td>'
+                                + value.Name + '</td><td>'
+                                + value.Age + '</td></tr>');
+                            $('#tblData').append(row);
+                        });
+
+                        // $('#successModal').modal('show');
+                    },
+                    error: function (jqxHR) {
+                        $('#divErrorText').text(jqxHR.responseText);
+                        $('#divError').show('fade');
+                    }
+                })
+
+            });
+        });
+    </script>
+</body>
+</html>

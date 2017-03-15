@@ -1,0 +1,89 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title></title>
+    <link href="Content/bootstrap.css" rel="stylesheet" />
+</head>
+<body style="padding-top:20px">
+    <div class="col-md-10 col-md-offset-1">
+        <div class=" well">
+            <table class="table table-bordered">
+                <thead>
+                    <tr class="success">
+                        <td colspan="2">
+                            Exiting User Login
+                            <a class="btn btn-success pull-right" href="Register.html">Register</a>
+                        </td>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            User Name
+                        </td>
+                        <td>
+                            <input type="text" id="txtUserName" placeholder="User Name" />
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            Password
+                        </td>
+                        <td>
+                            <input type="password" id="txtPassword" placeholder="Password" />
+                        </td>
+                    </tr>
+
+                    <tr class="success">
+                        <td colspan="2">
+                            <input id="btnLogin" class="btn btn-success" type="button" value="Login" />
+                        </td>
+                    </tr>
+
+                </tbody>
+            </table>
+
+
+            <div id="divError" class="alert alert-danger collapse">
+                <a id="linkClose" class="close" href="#" />&times;
+            </div>
+            <div id="divErrorText"></div>
+        </div>
+
+    </div>
+    <script src="Scripts/jquery-1.10.2.min.js"></script>
+    <script src="Scripts/bootstrap.min.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            $('#divLinkClose').click(function () {
+                $('#divError').modal('fade');
+            });
+            $('#btnLogin').click(function () {
+                $.ajax({
+                    url: '/token',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: {
+                        username: $('#txtUserName').val(),
+                        password: $('#txtPassword').val(),
+                        grant_type: 'password'
+
+                    },
+                    success: function (response) {
+                        sessionStorage.setItem('accessToken', response.access_token);
+                        window.location.href = 'Data.html';
+                        //$('#divErrorText').text(JSON.stringify(response));
+                        //$('#divError').show('fade');
+                    },
+                    error: function (jqxHR) {
+                        $('#divErrorText').text(jqxHR.responseText);
+                        $('#divError').show('fade');
+                    }
+                })
+
+            });
+        });
+    </script>
+</body>
+</html>
