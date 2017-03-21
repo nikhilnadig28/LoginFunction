@@ -8,6 +8,7 @@
     <div class="col-md-10 col-md-offset-1">
         <div class=" well">
             <input type="button" id="btnLoadEmployees" class="btn btn-success" value="Load Employees" />
+            <input type="button" id="btnChangeRole" class="btn btn-success" value="Request Admin Access" />
             <input type="button" id="btnLogoff" class="btn btn-success pull-right" value="Logoff" />
         </div>
         <div class="well hidden" id="divData">
@@ -75,6 +76,28 @@
                 sessionStorage.removeItem('accessToken');
                 window.location.href = "Login.html";
 
+            })
+
+            $('#btnChangeRole').click(function () {
+                $.ajax({
+                    url: 'api/role/RequestAdmin',
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
+                    },
+                    success: function(data)
+                    {
+                        var ans = confirm("Do you want to give admin access to " + data)
+                        if (ans == true)
+                            alert( true);
+                        else
+                            alert(false);
+                    },
+                    error: function (jqxHR) {
+                        $('#divErrorText').text(jqxHR.responseText);
+                        $('#divError').show('fade');
+                    }
+                    });
             })
             $('#btnLoadEmployees').click(function () {
                 $.ajax({

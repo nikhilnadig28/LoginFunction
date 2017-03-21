@@ -21,7 +21,7 @@ using LoginTake2.Providers;
 
 namespace LoginFunction.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "SuperAdmin")]
     [RoutePrefix("api/Account")]
     public class AccountController : ApiController
     {

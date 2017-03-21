@@ -122,14 +122,14 @@ namespace LoginTake2
             }
 
             //Create Role Admin if it does not exist
-            //var role = roleManager.FindByName(roleName);
-            //if (role == null)
-            //{
-            //    role = new ApplicationRole(roleName);
+            var role2 = roleManager.FindByName("Admin");
+            if (role2 == null)
+            {
+                role2 = new ApplicationRole("Admin");
 
-            //    // Set the new custom property:
-            //    var roleresult = roleManager.Create(role);
-            //}
+                // Set the new custom property:
+                var roleresult = roleManager.Create(role2);
+            }
 
             //// Create Admin User:
             //var user = userManager.FindByName(name);
